@@ -165,11 +165,17 @@ async function convertMarkdown(filePath, fileName) {
             }
         }
 
-        // 画像パスを相対パスに修正し、見出しレベルを調整
+        // 画像パスをindex.mdからの相対パスに修正し、見出しレベルを調整
         let updatedBody = body
-            .replace(/!\[(.*?)\]\((\/images\/posts\/.*?)\)/g, (match, alt, src) => {
+            .replace(/!\[(.*?)\]\((\/(?:images\/posts\/)?[^)]+)\)/g, (match, alt, src) => {
                 const imageName = path.basename(src);
-                return `![${alt}](/${dirName}/${imageName})`;
+                console.log(`Debug: Converting image path for ${fileName}: ${src} -> ${imageName}`);
+                return `![${alt}](${imageName})`;
+            })
+            .replace(/\[(.*?)\]\((\/(?:images\/posts\/)?[^)]+)\)/g, (match, text, src) => {
+                const imageName = path.basename(src);
+                console.log(`Debug: Converting link path for ${fileName}: ${src} -> ${imageName}`);
+                return `[${text}](${imageName})`;
             })
             .replace(/^# /gm, '## '); // 見出しレベルを#から##に変更
 
@@ -201,7 +207,7 @@ async function moveImagesForPost(dirName, slug) {
         const subDirs = await fs.readdir(oldImagesPostDir, { withFileTypes: true });
         for (const subDir of subDirs) {
             if (subDir.isDirectory()) {
-                const subDirPath = path.join(oldImagesDir, subDir.name);
+                const subDirPath = path.join(oldImagesPostDir, subDir.name);
                 const images = await fs.readdir(subDirPath);
                 for (const image of images) {
                     const oldImagePath = path.join(subDirPath, image);

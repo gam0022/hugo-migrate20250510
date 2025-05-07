@@ -18,6 +18,27 @@ function extractMetadataFromFileName(fileName) {
     return { slug, dirName };
 }
 
+// マークダウンをプレーンテキストに変換する関数
+function markdownToPlainText(markdown) {
+    if (!markdown) return '';
+    let text = markdown;
+    // インラインリンク: [text](url) → text
+    text = text.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
+    // 画像: ![alt](url) → alt
+    text = text.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');
+    // 太字: **text** or __text__ → text
+    text = text.replace(/(?:\*\*|__)(.*?)(?:\*\*|__)/g, '$1');
+    // 斜体: *text* or _text_ → text
+    text = text.replace(/(?:\*|_)(.*?)(?:\*|_)/g, '$1');
+    // コード: `code` → code
+    text = text.replace(/`([^`]+)`/g, '$1');
+    // HTMLタグを除去
+    text = text.replace(/<[^>]+>/g, '');
+    // 連続するスペースを単一スペースに
+    text = text.replace(/\s+/g, ' ').trim();
+    return text;
+}
+
 // フロントマターを抽出する関数（1行ずつ読み込み）
 function extractFrontMatter(content) {
     const lines = content.split('\n');
@@ -111,11 +132,17 @@ async function convertMarkdown(filePath, fileName) {
         metadata.date = metadata.date || new Date().toISOString();
         metadata.tags = metadata.tags || [];
 
+        // summaryをマークダウンからプレーンテキストに変換
+        const rawSummary = body.split('\n').filter(line => line.trim())[0]?.trim() || 'No summary available';
+        const plainSummary = markdownToPlainText(rawSummary);
+        console.log(`Debug: Raw summary for ${fileName}: ${rawSummary}`);
+        console.log(`Debug: Plain text summary for ${fileName}: ${plainSummary}`);
+
         // 新しいメタデータを作成（YAML形式で出力）
         const newMetadata = {
             title: metadata.title,
             slug: metadata.slug,
-            summary: body.split('\n').filter(line => line.trim())[0]?.trim() || 'No summary available',
+            summary: plainSummary,
             date: metadata.date,
             tags: metadata.tags,
             authors: ['admin'],
@@ -174,7 +201,7 @@ async function moveImagesForPost(dirName, slug) {
         const subDirs = await fs.readdir(oldImagesPostDir, { withFileTypes: true });
         for (const subDir of subDirs) {
             if (subDir.isDirectory()) {
-                const subDirPath = path.join(oldImagesPostDir, subDir.name);
+                const subDirPath = path.join(oldImagesDir, subDir.name);
                 const images = await fs.readdir(subDirPath);
                 for (const image of images) {
                     const oldImagePath = path.join(subDirPath, image);

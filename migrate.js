@@ -165,7 +165,7 @@ async function convertMarkdown(filePath, fileName) {
             }
         }
 
-        // 画像パスをindex.mdからの相対パスに修正し、見出しレベルを調整
+        // 画像パスをindex.mdからの相対パスに修正し、見出しレベルを1段階下げる
         let updatedBody = body
             .replace(/!\[(.*?)\]\((\/(?:images\/posts\/)?[^)]+)\)/g, (match, alt, src) => {
                 const imageName = path.basename(src);
@@ -177,7 +177,12 @@ async function convertMarkdown(filePath, fileName) {
                 console.log(`Debug: Converting link path for ${fileName}: ${src} -> ${imageName}`);
                 return `[${text}](${imageName})`;
             })
-            .replace(/^# /gm, '## '); // 見出しレベルを#から##に変更
+            .replace(/^(#+) (.*)$/gm, (match, hashes, content) => {
+                // 見出しレベルを1段階下げる（H6は変更しない）
+                const newHashes = hashes.length < 6 ? hashes + '#' : hashes;
+                console.log(`Debug: Converting heading for ${fileName}: ${match} -> ${newHashes} ${content}`);
+                return `${newHashes} ${content}`;
+            });
 
         // 新しいメタデータをYAMLに変換
         const yamlMetadata = yaml.dump(newMetadata, { lineWidth: -1 });

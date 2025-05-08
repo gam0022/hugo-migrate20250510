@@ -98,7 +98,7 @@ async function ensureDir(dir) {
 }
 
 // 記事のサブディレクトリから画像/動画をコピーする関数（ディレクトリ構造を維持）
-async function moveImagesForPost(dirName, slug) {
+async function moveImagesForPost(dirName, slug, metadata) {
     const oldImagesPostDir = path.join(oldImagesDir, dirName);
     const newImagesPostDir = path.join(newContentDir, dirName);
 
@@ -128,18 +128,42 @@ async function moveImagesForPost(dirName, slug) {
         }
     }
 
-    // サブディレクトリが存在する場合にのみコピー
+    // デフォルトのディレクトリをチェック
     try {
         console.log(`Debug: Checking images/videos directory at ${oldImagesPostDir}`);
         await fs.access(oldImagesPostDir);
         await ensureDir(newImagesPostDir);
         await copyImagesRecursively(oldImagesPostDir, newImagesPostDir);
+        return; // コピーが成功したら終了
     } catch (err) {
-        if (err.code === 'ENOENT') {
-            console.log(`Debug: No images/videos directory found for ${dirName} at ${oldImagesPostDir}`);
-        } else {
+        if (err.code !== 'ENOENT') {
             console.warn(`Warning: Error accessing images/videos for ${dirName}: ${err.message}`);
+            return;
         }
+        console.log(`Debug: No images/videos directory found at ${oldImagesPostDir}. Attempting to derive path from metadata.image...`);
+    }
+
+    // デフォルトディレクトリが存在しない場合、metadata.imageからディレクトリ名を抽出
+    if (metadata.image && typeof metadata.image === 'string' && metadata.image.trim()) {
+        const imagePathParts = metadata.image.replace(/^\/?(?:images\/posts\/)?/, '').split('/');
+        const derivedDirName = imagePathParts[0]; // 例: '2025-04-12-draw2'
+        const derivedImagesDir = path.join(oldImagesDir, derivedDirName);
+
+        try {
+            console.log(`Debug: Trying derived images/videos directory from metadata.image: ${derivedImagesDir}`);
+            await fs.access(derivedImagesDir);
+            await ensureDir(newImagesPostDir);
+            await copyImagesRecursively(derivedImagesDir, newImagesPostDir);
+            console.log(`Debug: Successfully copied from derived directory ${derivedImagesDir}`);
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                console.log(`Debug: No images/videos directory found for ${dirName} at ${oldImagesPostDir} or derived path ${derivedImagesDir}`);
+            } else {
+                console.warn(`Warning: Error accessing derived images/videos directory ${derivedImagesDir}: ${err.message}`);
+            }
+        }
+    } else {
+        console.log(`Debug: No valid metadata.image to derive directory for ${dirName}. Skipping copy.`);
     }
 }
 
@@ -262,8 +286,8 @@ async function convertMarkdown(filePath, fileName) {
         await ensureDir(newDir);
         await fs.writeFile(path.join(newDir, 'index.md'), newContent, 'utf8');
 
-        // 記事のサブディレクトリから画像/動画をコピー
-        await moveImagesForPost(dirName, metadata.slug);
+        // 記事のサブディレクトリから画像/動画をコピー（metadataを渡す）
+        await moveImagesForPost(dirName, metadata.slug, metadata);
 
         console.log(`Successfully processed: ${fileName}`);
     } catch (err) {

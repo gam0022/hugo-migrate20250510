@@ -143,23 +143,30 @@ async function moveImagesForPost(dirName, slug, metadata) {
         console.log(`Debug: No images/videos directory found at ${oldImagesPostDir}. Attempting to derive path from metadata.image...`);
     }
 
-    // デフォルトディレクトリが存在しない場合、metadata.imageからディレクトリ名を抽出
+    // metadata.imageからディレクトリ名を抽出
     if (metadata.image && typeof metadata.image === 'string' && metadata.image.trim()) {
         const imagePathParts = metadata.image.replace(/^\/?(?:images\/posts\/)?/, '').split('/');
-        const derivedDirName = imagePathParts[0]; // 例: '2025-04-12-draw2'
-        const derivedImagesDir = path.join(oldImagesDir, derivedDirName);
+        if (imagePathParts.length === 1) {
+            // 直接ファイルの場合（例：2016-12-28-emsn2.png）
+            const directImagePath = path.join(oldImagesDir, imagePathParts[0]);
+            console.warn(`Warning: Image file for ${dirName} is directly in posts directory at ${directImagePath} instead of a subdirectory: ${metadata.image}`);
+        } else {
+            // サブディレクトリの場合（例：2025-04-12-draw2/subdir/ogp.jpg）
+            const derivedDirName = imagePathParts[0]; // 例: '2025-04-12-draw2'
+            const derivedImagesDir = path.join(oldImagesDir, derivedDirName);
 
-        try {
-            console.log(`Debug: Trying derived images/videos directory from metadata.image: ${derivedImagesDir}`);
-            await fs.access(derivedImagesDir);
-            await ensureDir(newImagesPostDir);
-            await copyImagesRecursively(derivedImagesDir, newImagesPostDir);
-            console.log(`Debug: Successfully copied from derived directory ${derivedImagesDir}`);
-        } catch (err) {
-            if (err.code === 'ENOENT') {
-                console.log(`Debug: No images/videos directory found for ${dirName} at ${oldImagesPostDir} or derived path ${derivedImagesDir}`);
-            } else {
-                console.warn(`Warning: Error accessing derived images/videos directory ${derivedImagesDir}: ${err.message}`);
+            try {
+                console.log(`Debug: Trying derived images/videos directory from metadata.image: ${derivedImagesDir}`);
+                await fs.access(derivedImagesDir);
+                await ensureDir(newImagesPostDir);
+                await copyImagesRecursively(derivedImagesDir, newImagesPostDir);
+                console.log(`Debug: Successfully copied from derived directory ${derivedImagesDir}`);
+            } catch (err) {
+                if (err.code === 'ENOENT') {
+                    console.log(`Debug: No images/videos directory found for ${dirName} at ${oldImagesPostDir} or derived path ${derivedImagesDir}`);
+                } else {
+                    console.warn(`Warning: Error accessing derived images/videos directory ${derivedImagesDir}: ${err.message}`);
+                }
             }
         }
     } else {
@@ -248,8 +255,8 @@ async function convertMarkdown(filePath, fileName) {
         if (metadata.image && typeof metadata.image === 'string' && metadata.image.trim()) {
             console.log(`Debug: metadata.image value for ${fileName}: ${metadata.image}`);
             const relativeImagePath = metadata.image.replace(/^\/?(?:images\/posts\/)?/, '');
-            // image.filename に相対パスを設定
-            const filenameRelativePath = relativeImagePath.replace(/^[^\/]+\//, '');
+            // image.filename に相対パスを設定（サブディレクトリがない場合はファイル名のみ）
+            const filenameRelativePath = relativeImagePath.includes('/') ? relativeImagePath.replace(/^[^\/]+\//, '') : relativeImagePath;
             newMetadata.image = { filename: filenameRelativePath };
             console.log(`Debug: Set image.filename for ${fileName}: ${filenameRelativePath}`);
         } else {
@@ -260,13 +267,13 @@ async function convertMarkdown(filePath, fileName) {
         let updatedBody = body
             .replace(/!\[(.*?)\]\((\/(?:images\/posts\/)?[^)]+)\)/g, (match, alt, src) => {
                 // サブディレクトリ構造を維持した相対パスに変換
-                const relativePath = src.replace(/^\/?(?:images\/posts\/)?[^\/]+\//, '');
+                const relativePath = src.replace(/^\/?(?:images\/posts\/)?[^\/]*\//, '');
                 console.log(`Debug: Converting media path for ${fileName}: ${src} -> ${relativePath}`);
                 return `![${alt}](${relativePath})`;
             })
             .replace(/\[(.*?)\]\((\/(?:images\/posts\/)?[^)]+)\)/g, (match, text, src) => {
                 // サブディレクトリ構造を維持した相対パスに変換
-                const relativePath = src.replace(/^\/?(?:images\/posts\/)?[^\/]+\//, '');
+                const relativePath = src.replace(/^\/?(?:images\/posts\/)?[^\/]*\//, '');
                 console.log(`Debug: Converting link path for ${fileName}: ${src} -> ${relativePath}`);
                 return `[${text}](${relativePath})`;
             })

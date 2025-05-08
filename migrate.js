@@ -99,7 +99,7 @@ async function ensureDir(dir) {
 
 // 記事のサブディレクトリから画像をコピーする関数（ディレクトリ構造を維持）
 async function moveImagesForPost(dirName, slug) {
-    const oldImagesPostDir = path.join(oldImagesDir, slug);
+    const oldImagesPostDir = path.join(oldImagesDir, dirName); // dirName を使用
     const newImagesPostDir = path.join(newContentDir, dirName);
 
     // 再帰的にサブディレクトリ内の画像をコピー
@@ -130,14 +130,15 @@ async function moveImagesForPost(dirName, slug) {
 
     // サブディレクトリが存在する場合にのみコピー
     try {
+        console.log(`Debug: Checking images directory at ${oldImagesPostDir}`);
         await fs.access(oldImagesPostDir);
         await ensureDir(newImagesPostDir);
         await copyImagesRecursively(oldImagesPostDir, newImagesPostDir);
     } catch (err) {
         if (err.code === 'ENOENT') {
-            console.log(`Debug: No images directory found for ${slug} at ${oldImagesPostDir}`);
+            console.log(`Debug: No images directory found for ${dirName} at ${oldImagesPostDir}`);
         } else {
-            console.warn(`Warning: Error accessing images for ${slug}: ${err.message}`);
+            console.warn(`Warning: Error accessing images for ${dirName}: ${err.message}`);
         }
     }
 }

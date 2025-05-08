@@ -130,15 +130,15 @@ async function moveImagesForPost(dirName, slug) {
 
     // サブディレクトリが存在する場合にのみコピー
     try {
-        console.log(`Debug: Checking images directory at ${oldImagesPostDir}`);
+        console.log(`Debug: Checking images/videos directory at ${oldImagesPostDir}`);
         await fs.access(oldImagesPostDir);
         await ensureDir(newImagesPostDir);
         await copyImagesRecursively(oldImagesPostDir, newImagesPostDir);
     } catch (err) {
         if (err.code === 'ENOENT') {
-            console.log(`Debug: No images directory found for ${dirName} at ${oldImagesPostDir}`);
+            console.log(`Debug: No images/videos directory found for ${dirName} at ${oldImagesPostDir}`);
         } else {
-            console.warn(`Warning: Error accessing images for ${dirName}: ${err.message}`);
+            console.warn(`Warning: Error accessing images/videos for ${dirName}: ${err.message}`);
         }
     }
 }

@@ -8,8 +8,8 @@ const oldContentDir = 'D:\\gam0022.github.com-source-hugo\\content\\post';
 const oldImagesDir = 'D:\\gam0022.github.com-source-hugo\\static\\images\\posts';
 const newContentDir = 'D:\\theme-academic-cv\\content\\post';
 
-// 画像ファイルの拡張子
-const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+// 画像および動画ファイルの拡張子
+const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4'];
 
 // ファイル名からslugとディレクトリ名を抽出する関数
 function extractMetadataFromFileName(fileName) {
@@ -28,7 +28,7 @@ function markdownToPlainText(markdown) {
     let text = markdown;
     // インラインリンク: [text](url) → text
     text = text.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
-    // 画像: ![alt](url) → alt
+    // 画像/動画: ![alt](url) → alt
     text = text.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');
     // 太字: **text** or __text__ → text
     text = text.replace(/(?:\*\*|__)(.*?)(?:\*\*|__)/g, '$1');
@@ -97,12 +97,12 @@ async function ensureDir(dir) {
     }
 }
 
-// 記事のサブディレクトリから画像をコピーする関数（ディレクトリ構造を維持）
+// 記事のサブディレクトリから画像/動画をコピーする関数（ディレクトリ構造を維持）
 async function moveImagesForPost(dirName, slug) {
-    const oldImagesPostDir = path.join(oldImagesDir, dirName); // dirName を使用
+    const oldImagesPostDir = path.join(oldImagesDir, dirName);
     const newImagesPostDir = path.join(newContentDir, dirName);
 
-    // 再帰的にサブディレクトリ内の画像をコピー
+    // 再帰的にサブディレクトリ内の画像/動画をコピー
     async function copyImagesRecursively(srcDir, destDir) {
         try {
             const entries = await fs.readdir(srcDir, { withFileTypes: true });
@@ -115,9 +115,9 @@ async function moveImagesForPost(dirName, slug) {
                 } else if (imageExtensions.includes(path.extname(entry.name).toLowerCase())) {
                     try {
                         await fs.copyFile(srcPath, destPath);
-                        console.log(`Debug: Copied image ${srcPath} to ${destPath}`);
+                        console.log(`Debug: Copied file ${srcPath} to ${destPath}`);
                     } catch (imgErr) {
-                        console.warn(`Warning: Failed to copy image ${srcPath}. Error: ${imgErr.message}`);
+                        console.warn(`Warning: Failed to copy file ${srcPath}. Error: ${imgErr.message}`);
                     }
                 }
             }
@@ -220,7 +220,7 @@ async function convertMarkdown(filePath, fileName) {
             authors: ['admin'],
         };
 
-        // 画像の処理（imageフィールドがあればfeatured.jpgにリネーム）
+        // 画像/動画の処理（imageフィールドがあればfeatured.<ext>にリネーム）
         let featuredImage = '';
         if (metadata.image && typeof metadata.image === 'string' && metadata.image.trim()) {
             console.log(`Debug: metadata.image value for ${fileName}: ${metadata.image}`);
@@ -236,11 +236,11 @@ async function convertMarkdown(filePath, fileName) {
                 if (!imageExt) {
                     console.warn(`Warning: No valid extension for image ${imagePath} in ${fileName}. Skipping featured image.`);
                 } else {
-                    featuredImage = `featured${imageExt}`; // featured.jpg or featured.png
+                    featuredImage = `featured${imageExt}`; // featured.jpg, featured.mp4, etc.
                     const newImagePath = path.join(newContentDir, dirName, featuredImage);
                     await ensureDir(path.dirname(newImagePath));
                     await fs.copyFile(imagePath, newImagePath);
-                    console.log(`Debug: Copied featured image ${imagePath} to ${newImagePath}`);
+                    console.log(`Debug: Copied featured file ${imagePath} to ${newImagePath}`);
                 }
             } catch (imgErr) {
                 console.warn(`Warning: Failed to copy image ${imagePath} for ${fileName}. Error: ${imgErr.message}`);
@@ -249,12 +249,12 @@ async function convertMarkdown(filePath, fileName) {
             console.log(`Debug: No valid metadata.image for ${fileName}`);
         }
 
-        // 画像パスをindex.mdからの相対パスに修正し、見出しレベルを1段階下げる
+        // 画像/動画パスをindex.mdからの相対パスに修正し、見出しレベルを1段階下げる
         let updatedBody = body
             .replace(/!\[(.*?)\]\((\/(?:images\/posts\/)?[^)]+)\)/g, (match, alt, src) => {
                 // サブディレクトリ構造を維持した相対パスに変換
                 const relativePath = src.replace(/^\/?(?:images\/posts\/)?[^\/]+\//, '');
-                console.log(`Debug: Converting image path for ${fileName}: ${src} -> ${relativePath}`);
+                console.log(`Debug: Converting media path for ${fileName}: ${src} -> ${relativePath}`);
                 return `![${alt}](${relativePath})`;
             })
             .replace(/\[(.*?)\]\((\/(?:images\/posts\/)?[^)]+)\)/g, (match, text, src) => {
@@ -279,7 +279,7 @@ async function convertMarkdown(filePath, fileName) {
         await ensureDir(newDir);
         await fs.writeFile(path.join(newDir, 'index.md'), newContent, 'utf8');
 
-        // 記事のサブディレクトリから画像をコピー
+        // 記事のサブディレクトリから画像/動画をコピー
         await moveImagesForPost(dirName, metadata.slug);
 
         console.log(`Successfully processed: ${fileName}`);

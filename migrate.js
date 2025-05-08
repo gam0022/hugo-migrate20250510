@@ -266,6 +266,17 @@ async function convertMarkdown(filePath, fileName) {
         // 画像/動画パスをindex.mdからの相対パスに修正し、見出しレベルを1段階下げる
         let updatedBody = body
             .replace(/!\[(.*?)\]\((\/(?:images\/posts\/)?[^)]+)\)/g, (match, alt, src) => {
+                // 画像URLが /images/posts/ 直下のファイルか、またはサブディレクトリが一致しないかチェック
+                const urlPathParts = src.replace(/^\/?(?:images\/posts\/)?/, '').split('/');
+                if (urlPathParts.length === 1) {
+                    const imagePath = path.join(oldImagesDir, urlPathParts[0]);
+                    console.warn(`Warning: Image URL in ${fileName} is directly in posts directory at ${imagePath} instead of a subdirectory: ${src}`);
+                } else if (urlPathParts.length > 1) {
+                    const urlSubdir = urlPathParts[0];
+                    if (urlSubdir !== dirName) {
+                        console.warn(`Warning: Image URL in ${fileName} has a mismatched subdirectory ${urlSubdir} (expected ${dirName}): ${src}`);
+                    }
+                }
                 // サブディレクトリ構造を維持した相対パスに変換
                 const relativePath = src.replace(/^\/?(?:images\/posts\/)?[^\/]*\//, '');
                 console.log(`Debug: Converting media path for ${fileName}: ${src} -> ${relativePath}`);

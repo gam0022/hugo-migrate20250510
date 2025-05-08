@@ -13,7 +13,8 @@ const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
 
 // ファイル名からslugとディレクトリ名を抽出する関数
 function extractMetadataFromFileName(fileName) {
-    const baseName = path.basename(fileName, '.md');
+    const ext = path.extname(fileName).toLowerCase();
+    const baseName = path.basename(fileName, ext);
     // 日付プレフィックス（YYYY-MM-DD-）を削除してslugを生成
     const slug = baseName.replace(/^\d{4}-\d{2}-\d{2}-/, '');
     // ディレクトリ名は日付プレフィックスを含む
@@ -295,7 +296,9 @@ async function main() {
             console.warn(`Warning: No files found in ${oldContentDir}`);
         }
         for (const file of files) {
-            if (path.extname(file) === '.md') {
+            const ext = path.extname(file).toLowerCase();
+            if (ext === '.md' || ext === '.markdown') {
+                console.log(`Debug: Processing file with extension: ${ext}`);
                 const filePath = path.join(oldContentDir, file);
                 await convertMarkdown(filePath, file);
             }

@@ -220,31 +220,14 @@ async function convertMarkdown(filePath, fileName) {
             authors: ['admin'],
         };
 
-        // 画像/動画の処理（imageフィールドがあればfeatured.<ext>にリネーム）
-        let featuredImage = '';
+        // image.filename に相対パスを設定（画像コピーはしない）
         if (metadata.image && typeof metadata.image === 'string' && metadata.image.trim()) {
             console.log(`Debug: metadata.image value for ${fileName}: ${metadata.image}`);
             const relativeImagePath = metadata.image.replace(/^\/?(?:images\/posts\/)?/, '');
-            const imagePath = path.join(oldImagesDir, relativeImagePath);
-            console.log(`Debug: Computed imagePath for ${fileName}: ${imagePath}`);
-            try {
-                // ファイルの存在を確認
-                await fs.access(imagePath);
-                const imageFileName = path.basename(imagePath);
-                console.log(`Debug: imageFileName for ${fileName}: ${imageFileName}`);
-                const imageExt = path.extname(imageFileName);
-                if (!imageExt) {
-                    console.warn(`Warning: No valid extension for image ${imagePath} in ${fileName}. Skipping featured image.`);
-                } else {
-                    featuredImage = `featured${imageExt}`; // featured.jpg, featured.mp4, etc.
-                    const newImagePath = path.join(newContentDir, dirName, featuredImage);
-                    await ensureDir(path.dirname(newImagePath));
-                    await fs.copyFile(imagePath, newImagePath);
-                    console.log(`Debug: Copied featured file ${imagePath} to ${newImagePath}`);
-                }
-            } catch (imgErr) {
-                console.warn(`Warning: Failed to copy image ${imagePath} for ${fileName}. Error: ${imgErr.message}`);
-            }
+            // image.filename に相対パスを設定
+            const filenameRelativePath = relativeImagePath.replace(/^[^\/]+\//, '');
+            newMetadata.image = { filename: filenameRelativePath };
+            console.log(`Debug: Set image.filename for ${fileName}: ${filenameRelativePath}`);
         } else {
             console.log(`Debug: No valid metadata.image for ${fileName}`);
         }

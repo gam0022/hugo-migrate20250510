@@ -151,8 +151,8 @@ async function moveImagesForPost(dirName, slug, metadata) {
             const directImagePath = path.join(oldImagesDir, imagePathParts[0]);
             console.warn(`Warning: Image file for ${dirName} is directly in posts directory at ${directImagePath} instead of a subdirectory: ${metadata.image}`);
         } else {
-            // サブディレクトリの場合（例：2025-04-12-draw2/subdir/ogp.jpg）
-            const derivedDirName = imagePathParts[0]; // 例: '2025-04-12-draw2'
+            // サブディレクトリの場合（例：2013-03-12-computer-graphics/4/img1_1.png）
+            const derivedDirName = imagePathParts[0]; // 例: '2013-03-12-computer-graphics'
             const derivedImagesDir = path.join(oldImagesDir, derivedDirName);
 
             try {
@@ -272,22 +272,60 @@ async function convertMarkdown(filePath, fileName) {
             .replace(/!\[(.*?)\]\((\/(?:images\/posts\/)?[^)]+)\)/g, (match, alt, src) => {
                 // 画像URLが /images/posts/ 直下のファイルか、またはサブディレクトリが一致しないかチェック
                 const urlPathParts = src.replace(/^\/?(?:images\/posts\/)?/, '').split('/');
+                let relativePath;
+                const newDir = path.join(newContentDir, dirName);
+                let srcPath;
+
                 if (urlPathParts.length === 1) {
-                    const imagePath = path.join(oldImagesDir, urlPathParts[0]);
-                    console.warn(`Warning: Image URL in ${fileName} is directly in posts directory at ${imagePath} instead of a subdirectory: ${src}`);
-                } else if (urlPathParts.length > 1) {
+                    // ケース1: 直接ファイル
+                    relativePath = urlPathParts[0];
+                    srcPath = path.join(oldImagesDir, urlPathParts[0]);
+                    console.warn(`Warning: Image URL in ${fileName} is directly in posts directory at ${srcPath} instead of a subdirectory: ${src}`);
+                    // 画像を正しいディレクトリにコピー
+                    const destPath = path.join(newDir, relativePath);
+                    if (imageExtensions.includes(path.extname(relativePath).toLowerCase())) {
+                        console.log(`Debug: Copying image from ${srcPath} to ${destPath}`);
+                        try {
+                            fs.accessSync(srcPath); // ファイル存在チェック
+                            fs.mkdirSync(newDir, { recursive: true });
+                            fs.copyFileSync(srcPath, destPath);
+                            console.log(`Debug: Successfully copied image to ${destPath}`);
+                        } catch (err) {
+                            console.warn(`Warning: Failed to copy image from ${srcPath} to ${destPath}: ${err.message}`);
+                        }
+                    }
+                } else {
                     const urlSubdir = urlPathParts[0];
+                    srcPath = path.join(oldImagesDir, urlPathParts.join('/'));
                     if (urlSubdir !== dirName) {
+                        // ケース2: サブディレクトリ不一致
                         console.warn(`Warning: Image URL in ${fileName} has a mismatched subdirectory ${urlSubdir} (expected ${dirName}): ${src}`);
+                        relativePath = urlPathParts[urlPathParts.length - 1]; // ファイル名のみ
+                        // 画像を正しいディレクトリにコピー
+                        const destPath = path.join(newDir, relativePath);
+                        if (imageExtensions.includes(path.extname(relativePath).toLowerCase())) {
+                            console.log(`Debug: Copying image from ${srcPath} to ${destPath}`);
+                            try {
+                                fs.accessSync(srcPath); // ファイル存在チェック
+                                fs.mkdirSync(newDir, { recursive: true });
+                                fs.copyFileSync(srcPath, destPath);
+                                console.log(`Debug: Successfully copied image to ${destPath}`);
+                            } catch (err) {
+                                console.warn(`Warning: Failed to copy image from ${srcPath} to ${destPath}: ${err.message}`);
+                            }
+                        }
+                    } else {
+                        // ケース3: サブディレクトリ一致
+                        // サブディレクトリとファイル名を保持（例：4/img1_1.png）
+                        relativePath = urlPathParts.slice(1).join('/');
                     }
                 }
-                // サブディレクトリ構造を維持した相対パスに変換
-                const relativePath = src.replace(/^\/?(?:images\/posts\/)?[^\/]*\//, '');
+
                 console.log(`Debug: Converting media path for ${fileName}: ${src} -> ${relativePath}`);
                 return `![${alt}](${relativePath})`;
             })
             .replace(/\[(.*?)\]\((\/(?:images\/posts\/)?[^)]+)\)/g, (match, text, src) => {
-                // サブディレクトリ構造を維持した相対パスに変換
+                // リンク（非画像）のサブディレクトリ構造を維持した相対パスに変換
                 const relativePath = src.replace(/^\/?(?:images\/posts\/)?[^\/]*\//, '');
                 console.log(`Debug: Converting link path for ${fileName}: ${src} -> ${relativePath}`);
                 return `[${text}](${relativePath})`;

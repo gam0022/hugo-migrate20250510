@@ -247,6 +247,7 @@ async function convertMarkdown(filePath, fileName) {
             slug: metadata.slug,
             summary: plainSummary,
             date: metadata.date,
+            math: metadata.math !== undefined ? metadata.math : false, // math フィールドを追加
             tags: metadata.tags,
             authors: ['admin'],
             draft: metadata.draft !== undefined ? metadata.draft : false,
@@ -254,6 +255,7 @@ async function convertMarkdown(filePath, fileName) {
 
         // draft 値のデバッグログ
         console.log(`Debug: Set draft for ${fileName}: ${newMetadata.draft}`);
+        console.log(`Debug: Set math for ${fileName}: ${newMetadata.math}`);
 
         // 本文から最初の画像を抽出
         let firstImagePath = null;

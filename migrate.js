@@ -6,7 +6,7 @@ const yaml = require('js-yaml');
 // ディレクトリ設定
 const oldContentDir = 'D:\\gam0022.github.com-source-hugo\\content\\post';
 const oldImagesDir = 'D:\\gam0022.github.com-source-hugo\\static\\images\\posts';
-const newContentDir = 'D:\\theme-academic-cv\\content\\post';
+const newContentDir = 'D:\\gam0022.github.com-source-hugo-v2\\content\\post';
 
 // 画像および動画ファイルの拡張子
 const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4'];
@@ -249,7 +249,11 @@ async function convertMarkdown(filePath, fileName) {
             date: metadata.date,
             tags: metadata.tags,
             authors: ['admin'],
+            draft: metadata.draft !== undefined ? metadata.draft : false,
         };
+
+        // draft 値のデバッグログ
+        console.log(`Debug: Set draft for ${fileName}: ${newMetadata.draft}`);
 
         // image.filename に相対パスを設定（画像コピーはしない）
         if (metadata.image && typeof metadata.image === 'string' && metadata.image.trim()) {

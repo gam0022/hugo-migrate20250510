@@ -255,16 +255,44 @@ async function convertMarkdown(filePath, fileName) {
         // draft 値のデバッグログ
         console.log(`Debug: Set draft for ${fileName}: ${newMetadata.draft}`);
 
-        // image.filename に相対パスを設定（画像コピーはしない）
+        // 本文から最初の画像を抽出
+        let firstImagePath = null;
+        const imageMatch = body.match(/!\[.*?\]\((\/?(?:images\/posts\/)?[^)]+)\)/);
+        if (imageMatch) {
+            const src = imageMatch[1];
+            const urlPathParts = src.replace(/^\/?(?:images\/posts\/)?/, '').split('/');
+            if (urlPathParts.length === 1) {
+                // 直接ファイル（例：2013.1.24_eclipse_formatter.png）
+                firstImagePath = urlPathParts[0];
+                console.log(`Debug: Found first image in body for ${fileName}: ${firstImagePath} (direct file)`);
+            } else {
+                const urlSubdir = urlPathParts[0];
+                if (urlSubdir === dirName) {
+                    // サブディレクトリ一致（例：2013-03-12-computer-graphics/4/img1_1.png）
+                    firstImagePath = urlPathParts.slice(1).join('/');
+                    console.log(`Debug: Found first image in body for ${fileName}: ${firstImagePath} (subdir matches)`);
+                } else {
+                    // サブディレクトリ不一致（ファイル名のみ使用）
+                    firstImagePath = urlPathParts[urlPathParts.length - 1];
+                    console.log(`Debug: Found first image in body for ${fileName}: ${firstImagePath} (subdir mismatch)`);
+                }
+            }
+        } else {
+            console.log(`Debug: No images found in body for ${fileName}`);
+        }
+
+        // image.filename に設定（既存の metadata.image がなければ本文の画像を優先）
         if (metadata.image && typeof metadata.image === 'string' && metadata.image.trim()) {
             console.log(`Debug: metadata.image value for ${fileName}: ${metadata.image}`);
             const relativeImagePath = metadata.image.replace(/^\/?(?:images\/posts\/)?/, '');
-            // image.filename に相対パスを設定（サブディレクトリがない場合はファイル名のみ）
             const filenameRelativePath = relativeImagePath.includes('/') ? relativeImagePath.replace(/^[^\/]+\//, '') : relativeImagePath;
             newMetadata.image = { filename: filenameRelativePath };
-            console.log(`Debug: Set image.filename for ${fileName}: ${filenameRelativePath}`);
+            console.log(`Debug: Set image.filename from metadata for ${fileName}: ${filenameRelativePath}`);
+        } else if (firstImagePath) {
+            newMetadata.image = { filename: firstImagePath };
+            console.log(`Debug: Set image.filename from first body image for ${fileName}: ${firstImagePath}`);
         } else {
-            console.log(`Debug: No valid metadata.image for ${fileName}`);
+            console.log(`Debug: No valid metadata.image or body image for ${fileName}`);
         }
 
         // 画像パス置換とファイルコピーの準備

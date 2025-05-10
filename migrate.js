@@ -241,15 +241,16 @@ async function convertMarkdown(filePath, fileName) {
         console.log(`Debug: Raw summary for ${fileName}: ${rawSummary}`);
         console.log(`Debug: Plain text summary for ${fileName}: ${plainSummary}`);
 
-        // 新しいメタデータを作成（YAML形式で出力）
+        // 新しいメタデータを作成（指定された順序で）
         const newMetadata = {
             title: metadata.title,
             slug: metadata.slug,
             summary: plainSummary,
             date: metadata.date,
-            math: metadata.math !== undefined ? metadata.math : false, // math フィールドを追加
+            math: metadata.math !== undefined ? metadata.math : false,
+            authors: metadata.authors || ['admin'],
             tags: metadata.tags,
-            authors: ['admin'],
+            image: undefined, // 後で設定
             draft: metadata.draft !== undefined ? metadata.draft : false,
         };
 
@@ -295,6 +296,12 @@ async function convertMarkdown(filePath, fileName) {
             console.log(`Debug: Set image.filename from first body image for ${fileName}: ${firstImagePath}`);
         } else {
             console.log(`Debug: No valid metadata.image or body image for ${fileName}`);
+        }
+
+        // image.caption の設定（例の形式に基づく）
+        if (newMetadata.image && metadata.image && metadata.image.caption) {
+            newMetadata.image.caption = metadata.image.caption;
+            console.log(`Debug: Set image.caption for ${fileName}: ${metadata.image.caption}`);
         }
 
         // 画像パス置換とファイルコピーの準備

@@ -267,53 +267,31 @@ async function convertMarkdown(filePath, fileName) {
             console.log(`Debug: No valid metadata.image for ${fileName}`);
         }
 
-        // 画像/動画パスをindex.mdからの相対パスに修正し、見出しレベルを1段階下げる
+        // 画像パス置換とファイルコピーの準備
+        const imageCopyTasks = [];
         let updatedBody = body
             .replace(/!\[(.*?)\]\((\/(?:images\/posts\/)?[^)]+)\)/g, (match, alt, src) => {
                 // 画像URLが /images/posts/ 直下のファイルか、またはサブディレクトリが一致しないかチェック
                 const urlPathParts = src.replace(/^\/?(?:images\/posts\/)?/, '').split('/');
                 let relativePath;
                 const newDir = path.join(newContentDir, dirName);
-                let srcPath;
 
                 if (urlPathParts.length === 1) {
                     // ケース1: 直接ファイル
                     relativePath = urlPathParts[0];
-                    srcPath = path.join(oldImagesDir, urlPathParts[0]);
+                    const srcPath = path.join(oldImagesDir, urlPathParts[0]);
                     console.warn(`Warning: Image URL in ${fileName} is directly in posts directory at ${srcPath} instead of a subdirectory: ${src}`);
-                    // 画像を正しいディレクトリにコピー
-                    const destPath = path.join(newDir, relativePath);
-                    if (imageExtensions.includes(path.extname(relativePath).toLowerCase())) {
-                        console.log(`Debug: Copying image from ${srcPath} to ${destPath}`);
-                        try {
-                            fs.accessSync(srcPath); // ファイル存在チェック
-                            fs.mkdirSync(newDir, { recursive: true });
-                            fs.copyFileSync(srcPath, destPath);
-                            console.log(`Debug: Successfully copied image to ${destPath}`);
-                        } catch (err) {
-                            console.warn(`Warning: Failed to copy image from ${srcPath} to ${destPath}: ${err.message}`);
-                        }
-                    }
+                    // 画像コピータスクを追加
+                    imageCopyTasks.push({ srcPath, destPath: path.join(newDir, relativePath) });
                 } else {
                     const urlSubdir = urlPathParts[0];
-                    srcPath = path.join(oldImagesDir, urlPathParts.join('/'));
+                    const srcPath = path.join(oldImagesDir, urlPathParts.join('/'));
                     if (urlSubdir !== dirName) {
                         // ケース2: サブディレクトリ不一致
                         console.warn(`Warning: Image URL in ${fileName} has a mismatched subdirectory ${urlSubdir} (expected ${dirName}): ${src}`);
                         relativePath = urlPathParts[urlPathParts.length - 1]; // ファイル名のみ
-                        // 画像を正しいディレクトリにコピー
-                        const destPath = path.join(newDir, relativePath);
-                        if (imageExtensions.includes(path.extname(relativePath).toLowerCase())) {
-                            console.log(`Debug: Copying image from ${srcPath} to ${destPath}`);
-                            try {
-                                fs.accessSync(srcPath); // ファイル存在チェック
-                                fs.mkdirSync(newDir, { recursive: true });
-                                fs.copyFileSync(srcPath, destPath);
-                                console.log(`Debug: Successfully copied image to ${destPath}`);
-                            } catch (err) {
-                                console.warn(`Warning: Failed to copy image from ${srcPath} to ${destPath}: ${err.message}`);
-                            }
-                        }
+                        // 画像コピータスクを追加
+                        imageCopyTasks.push({ srcPath, destPath: path.join(newDir, relativePath) });
                     } else {
                         // ケース3: サブディレクトリ一致
                         // サブディレクトリとファイル名を保持（例：4/img1_1.png）
@@ -336,6 +314,21 @@ async function convertMarkdown(filePath, fileName) {
                 console.log(`Debug: Converting heading for ${fileName}: ${match} -> ${newHashes} ${content}`);
                 return `${newHashes} ${content}`;
             });
+
+        // 画像ファイルのコピー処理（非同期）
+        for (const { srcPath, destPath } of imageCopyTasks) {
+            if (imageExtensions.includes(path.extname(destPath).toLowerCase())) {
+                console.log(`Debug: Scheduling image copy from ${srcPath} to ${destPath}`);
+                try {
+                    await fs.access(srcPath); // ファイル存在チェック
+                    await fs.mkdir(path.dirname(destPath), { recursive: true });
+                    await fs.copyFile(srcPath, destPath);
+                    console.log(`Debug: Successfully copied image to ${destPath}`);
+                } catch (err) {
+                    console.warn(`Warning: Failed to copy image from ${srcPath} to ${destPath}: ${err.message}`);
+                }
+            }
+        }
 
         // 新しいメタデータをYAMLに変換
         const yamlMetadata = yaml.dump(newMetadata, { lineWidth: -1 });
